@@ -4,7 +4,7 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import * as FileSystem from 'expo-file-system';
+import { identifyRock, type RockIdentification } from '@/services/rockIdentification';
 
 export default function ScanScreen() {
   const [facing, setFacing] = useState<CameraType>('back');
@@ -40,32 +40,31 @@ export default function ScanScreen() {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
-  const identifyRock = async (photoUri: string) => {
+  const identifyRockPhoto = async (photoUri: string) => {
     setIsProcessing(true);
     try {
-      // Option 1: Convert to base64 for direct AI API calls
-      const base64 = await FileSystem.readAsStringAsync(photoUri, {
-        encoding: 'base64',
-      });
+      const result: RockIdentification = await identifyRock(photoUri);
       
-      // TODO: Send to AI API (OpenAI Vision, Google Gemini, etc.)
-      // Example structure:
-      // const response = await fetch('YOUR_AI_API_ENDPOINT', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     image: `data:image/jpeg;base64,${base64}`,
-      //     prompt: 'Identify this rock type'
-      //   })
-      // });
-      
-      // Simulate AI processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      Alert.alert('Rock Identified!', 'This appears to be a sedimentary rock (simulated result)');
-      setCapturedPhoto(null);
+      Alert.alert(
+        `${result.name} Identified!`,
+        `Type: ${result.type}\nConfidence: ${result.confidence}%\n\n${result.description}${
+          result.minerals ? `\n\nMinerals: ${result.minerals.join(', ')}` : ''
+        }`,
+        [
+          { text: 'Save to Collection', onPress: () => {
+            // TODO: Save to Firebase collection
+            setCapturedPhoto(null);
+          }},
+          { text: 'Retake', style: 'cancel', onPress: () => setCapturedPhoto(null) }
+        ]
+      );
     } catch (error) {
-      Alert.alert('Error', 'Failed to identify rock');
+      Alert.alert(
+        'Identification Failed',
+        'Unable to identify rock. Please ensure you have a clear photo and internet connection.',
+        [{ text: 'Retake', onPress: () => setCapturedPhoto(null) }]
+      );
+      console.error('Rock identification error:', error);
     } finally {
       setIsProcessing(false);
     }
@@ -77,7 +76,7 @@ export default function ScanScreen() {
         const photo = await cameraRef.current.takePictureAsync();
         if (photo?.uri) {
           setCapturedPhoto(photo.uri);
-          await identifyRock(photo.uri);
+          await identifyRockPhoto(photo.uri);
         }
       } catch (error) {
         Alert.alert('Error', 'Failed to take picture');
@@ -114,25 +113,24 @@ export default function ScanScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-        <View style={styles.overlay}>
-          <View style={styles.topBar}>
-            <ThemedText type="title" style={styles.title}>Scan Rock</ThemedText>
-          </View>
-          
-          <View style={styles.bottomBar}>
-            <Pressable style={styles.flipButton} onPress={toggleCameraFacing}>
-              <IconSymbol name="arrow.triangle.2.circlepath.camera" size={32} color="#fff" />
-            </Pressable>
-            
-            <Pressable style={styles.captureButton} onPress={takePicture}>
-              <View style={styles.captureButtonInner} />
-            </Pressable>
-            
-            <View style={styles.flipButton} />
-          </View>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
+      <View style={styles.overlay}>
+        <View style={styles.topBar}>
+          <ThemedText type="title" style={styles.title}>Scan Rock</ThemedText>
         </View>
-      </CameraView>
+        
+        <View style={styles.bottomBar}>
+          <Pressable style={styles.flipButton} onPress={toggleCameraFacing}>
+            <IconSymbol name="arrow.triangle.2.circlepath.camera" size={32} color="#fff" />
+          </Pressable>
+          
+          <Pressable style={styles.captureButton} onPress={takePicture}>
+            <View style={styles.captureButtonInner} />
+          </Pressable>
+          
+          <View style={styles.flipButton} />
+        </View>
+      </View>
     </ThemedView>
   );
 }
@@ -161,7 +159,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
   },
   topBar: {

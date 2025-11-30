@@ -1,0 +1,9 @@
+*.png
+__pycache__/
+*.pyc
+dataset/
+*.md
+test_*.py
+train_model.py
+.git/
+.gitignore
