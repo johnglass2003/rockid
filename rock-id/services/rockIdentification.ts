@@ -75,7 +75,7 @@ export async function identifyRockWithGemini(imageUri: string): Promise<RockIden
   return result;
 }
 
-// Option 3: Your Custom Model API (to implement later)
+// Option 3: Your Custom Model API
 export async function identifyRockWithCustomModel(imageUri: string): Promise<RockIdentification> {
   const formData = new FormData();
   formData.append('image', {
@@ -84,7 +84,12 @@ export async function identifyRockWithCustomModel(imageUri: string): Promise<Roc
     name: 'rock.jpg',
   } as any);
 
-  const response = await fetch('YOUR_CUSTOM_API_ENDPOINT/identify', {
+  const apiUrl = process.env.EXPO_PUBLIC_CUSTOM_MODEL_URL;
+  if (!apiUrl) {
+    throw new Error('EXPO_PUBLIC_CUSTOM_MODEL_URL not configured');
+  }
+
+  const response = await fetch(`${apiUrl}/identify`, {
     method: 'POST',
     body: formData,
   });
